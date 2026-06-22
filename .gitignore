@@ -1,0 +1,29 @@
+# ── Secrets / local config (NEVER commit) ─────────────────────────────
+.env
+*.env
+.deploy.vars
+*.secret
+
+# ── Azure deployment helper scripts (environment-specific) ────────────
+_*.ps1
+
+# ── Datasets (do not redistribute; large) ─────────────────────────────
+*.csv
+data/*.csv
+
+# ── Generated pipeline artifacts ──────────────────────────────────────
+outputs/
+
+# ── Python ────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# ── OS / editor ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+*.pdf

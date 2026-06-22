@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GridLock Brain — Parking-Induced Congestion Intelligence</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{
+    --bg:#0a0e17; --panel:#111726; --panel2:#161d30; --line:#222b42;
+    --txt:#e7ecf5; --mut:#8b97b0; --acc:#39d0d8; --acc2:#7c5cff;
+    --hot:#ff4d5e; --warn:#ffb020; --ok:#28c76f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+  #app{display:grid;grid-template-rows:auto 1fr;height:100vh}
+  header{display:flex;align-items:center;gap:18px;padding:10px 18px;background:linear-gradient(90deg,#0c1322,#0a0e17);border-bottom:1px solid var(--line)}
+  .logo{font-weight:800;font-size:18px;letter-spacing:.5px}
+  .logo b{color:var(--acc)}
+  .tag{font-size:11px;color:var(--mut);border:1px solid var(--line);padding:3px 8px;border-radius:20px}
+  .kpis{display:flex;gap:10px;margin-left:auto;flex-wrap:wrap}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 12px;min-width:96px}
+  .kpi .v{font-size:18px;font-weight:800;color:var(--acc)}
+  .kpi .v.alt{color:var(--acc2)} .kpi .v.hot{color:var(--hot)}
+  .kpi .l{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  main{display:grid;grid-template-columns:340px 1fr 360px;overflow:hidden}
+  .col{overflow:auto;padding:12px}
+  .col.left{border-right:1px solid var(--line);background:var(--panel)}
+  .col.right{border-left:1px solid var(--line);background:var(--panel)}
+  #map{height:100%}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);margin:4px 0 8px}
+  .seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px;margin-bottom:10px}
+  .seg button{flex:1;background:none;border:0;color:var(--mut);padding:7px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer}
+  .seg button.on{background:var(--acc);color:#06222a}
+  .row{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;margin-bottom:7px;cursor:pointer;background:var(--panel2);transition:.12s}
+  .row:hover{border-color:var(--acc)}
+  .row.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+  .rank{width:26px;height:26px;flex:0 0 26px;border-radius:7px;display:grid;place-items:center;font-weight:800;font-size:12px;background:#1d2740;color:var(--acc)}
+  .rank.p{background:var(--acc2);color:#fff}
+  .rn{flex:1;min-width:0}
+  .rn .t{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rn .s{font-size:11px;color:var(--mut)}
+  .pc{font-size:14px;font-weight:800;text-align:right}
+  .pill{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px}
+  .pill.vh{background:#3a121a;color:var(--hot)} .pill.h{background:#3a2a12;color:var(--warn)}
+  .pill.m{background:#13243a;color:var(--acc)} .pill.e{background:#1a2233;color:var(--mut)}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+  .card .big{font-size:15px;font-weight:800}
+  .muted{color:var(--mut);font-size:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-size:11px;background:#16203a;border:1px solid var(--line);padding:3px 8px;border-radius:14px;color:var(--txt)}
+  table.heat{border-collapse:collapse;margin-top:6px}
+  table.heat td,table.heat th{width:13px;height:13px;font-size:8px;text-align:center;color:var(--mut)}
+  table.heat td{border-radius:2px}
+  .bar{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:11px}
+  .bar .lab{width:120px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .track{flex:1;height:9px;background:#0e1525;border-radius:5px;overflow:hidden}
+  .bar .fill{height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  .legend{position:absolute;bottom:14px;left:14px;z-index:500;background:rgba(10,14,23,.85);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .spark{display:flex;align-items:flex-end;gap:2px;height:42px;margin-top:6px}
+  .spark div{flex:1;background:var(--acc);border-radius:1px;opacity:.85}
+  .note{font-size:10.5px;color:var(--mut);line-height:1.5;margin-top:6px}
+  .mapwrap{position:relative}
+  .leaflet-popup-content-wrapper{background:var(--panel);color:var(--txt);border:1px solid var(--line)}
+  .leaflet-popup-tip{background:var(--panel)}
+  .pop b{color:var(--acc)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">GRID<b>LOCK</b> BRAIN</div>
+    <span class="tag">Parking-Induced Congestion Intelligence</span>
+    <span class="tag" id="period">—</span>
+    <div class="kpis" id="kpis"></div>
+  </header>
+  <main>
+    <div class="col left">
+      <div class="seg">
+        <button id="tabHot" class="on">Hotspots</button>
+        <button id="tabPatrol">Patrol Plan</button>
+      </div>
+      <h2 id="listTitle">Top Congestion Hotspots</h2>
+      <div id="list"></div>
+    </div>
+    <div class="mapwrap">
+      <div id="map"></div>
+      <div class="legend">
+        <div style="font-weight:700;margin-bottom:4px">Congestion Impact (PCII)</div>
+        <span><i style="background:#2c7bb6"></i>Low</span>
+        <span style="margin-left:8px"><i style="background:#ffb020"></i>Med</span>
+        <span style="margin-left:8px"><i style="background:#ff4d5e"></i>High</span>
+        <div style="margin-top:5px;color:var(--mut)"><i style="background:var(--acc2);border-radius:50%"></i>Patrol unit</div>
+      </div>
+    </div>
+    <div class="col right" id="detail"></div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="./data.js"></script>
+<script>
+const G = window.GRID;
+const $ = s => document.querySelector(s);
+const fmt = n => n>=1e6? (n/1e6).toFixed(2)+'M' : n>=1e3? (n/1e3).toFixed(1)+'k' : Math.round(n);
+const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const HEAT_GRAD = {0.0:'#2c7bb6',0.35:'#39d0d8',0.55:'#ffe066',0.75:'#ffb020',1.0:'#ff4d5e'};
+
+// ---- KPIs ----
+const k = G.kpis;
+$('#period').textContent = k.date_min + '  →  ' + k.date_max;
+$('#kpis').innerHTML = `
+  <div class="kpi"><div class="v">${fmt(k.total_records)}</div><div class="l">Violations</div></div>
+  <div class="kpi"><div class="v hot">${k.n_significant_hotspots}</div><div class="l">Sig. Hotspots</div></div>
+  <div class="kpi"><div class="v">${k.pareto_top1pct_share}%</div><div class="l">Impact in top 1%</div></div>
+  <div class="kpi"><div class="v alt">${k.patrols}</div><div class="l">Patrols → ${k.patrol_pcii_share}%</div></div>
+`;
+
+// ---- Map ----
+const map = L.map('map',{zoomControl:true,preferCanvas:true}).setView([12.972,77.594],12);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  {maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
+
+const maxHeat = Math.max(...G.heat.map(h=>h[2]));
+const heatPts = G.heat.map(h=>[h[0],h[1],h[2]/maxHeat]);
+const heatLayer = L.heatLayer(heatPts,{radius:22,blur:18,maxZoom:15,gradient:HEAT_GRAD}).addTo(map);
+
+const markerLayer = L.layerGroup().addTo(map);
+const patrolLayer = L.layerGroup();
+let selKey=null, mode='hot';
+const keyOf = h => h.gx+'_'+h.gy;
+
+function drawHotMarkers(){
+  markerLayer.clearLayers();
+  G.hotspots.forEach((h,i)=>{
+    const r = Math.max(6, Math.min(20, Math.sqrt(h.pcii)/9));
+    const c = L.circleMarker([h.lat,h.lon],{
+      radius:r, color:'#ff4d5e', weight: i<10?2:1, fillColor:'#ff4d5e',
+      fillOpacity:0.28, opacity:0.7
+    }).addTo(markerLayer);
+    c.on('click',()=>select(keyOf(h)));
+    c.bindTooltip(`#${i+1} ${h.name} · PCII ${fmt(h.pcii)}`,{direction:'top'});
+    h._marker=c;
+  });
+}
+function drawPatrols(){
+  patrolLayer.clearLayers();
+  G.patrol_plan.forEach(h=>{
+    const m = L.marker([h.lat,h.lon],{icon:L.divIcon({className:'',html:
+      `<div style="background:#7c5cff;color:#fff;width:24px;height:24px;border-radius:50%;
+       display:grid;place-items:center;font-weight:800;font-size:12px;border:2px solid #fff;
+       box-shadow:0 0 8px #7c5cff">${h.patrol_rank}</div>`,iconSize:[24,24],iconAnchor:[12,12]})}).addTo(patrolLayer);
+    m.bindPopup(`<div class="pop"><b>Patrol ${h.patrol_rank}</b> · ${h.name}<br>
+      Deploy window: <b>${h.peak_window}</b><br>Relief: <b>${fmt(h.pcii)}</b> PCII · ${h.count} tickets</div>`);
+    m.on('click',()=>select(keyOf(h)));
+  });
+}
+drawHotMarkers();
+
+// ---- List ----
+function renderList(){
+  const data = mode==='hot'? G.hotspots : G.patrol_plan;
+  $('#listTitle').textContent = mode==='hot'? 'Top Congestion Hotspots' : `Optimized Patrol Plan · ${G.patrol_plan.length} units`;
+  $('#list').innerHTML = data.map((h,i)=>{
+    const rk = mode==='patrol'? h.patrol_rank : i+1;
+    const sig = (h.significance||'').toLowerCase();
+    const cls = sig.includes('very')?'vh':sig.includes('high')?'h':sig.includes('mod')?'m':'e';
+    return `<div class="row" data-k="${keyOf(h)}">
+      <div class="rank ${mode==='patrol'?'p':''}">${rk}</div>
+      <div class="rn"><div class="t">${h.name}</div>
+        <div class="s">${h.count} tickets ${mode==='patrol'?'· ⏱ '+h.peak_window:'· z='+h.z}
+          <span class="pill ${cls}">${h.significance||''}</span></div></div>
+      <div class="pc">${fmt(h.pcii)}</div></div>`;
+  }).join('');
+  document.querySelectorAll('.row').forEach(r=>r.onclick=()=>select(r.dataset.k));
+  if(selKey) markSel();
+}
+function markSel(){
+  document.querySelectorAll('.row').forEach(r=>r.classList.toggle('sel',r.dataset.k===selKey));
+}
+
+// ---- Detail panel ----
+function select(key){
+  selKey=key; markSel();
+  const h = G.hotspots.find(x=>keyOf(x)===key) || G.patrol_plan.find(x=>keyOf(x)===key);
+  if(!h) return;
+  map.flyTo([h.lat,h.lon],15,{duration:.6});
+  if(h._marker){ h._marker.openTooltip(); }
+  renderDetail(h);
+  // ensure row visible
+  const row=document.querySelector(`.row[data-k="${key}"]`); if(row) row.scrollIntoView({block:'nearest'});
+}
+
+function renderDetail(h){
+  const prof = G.profiles[keyOf(h)];
+  $('#detail').innerHTML = `
+    <div class="card">
+      <div class="big">${h.name}</div>
+      <div class="muted">${h.lat.toFixed(4)}, ${h.lon.toFixed(4)} · ${h.count} tickets · ${Math.round(h.junction_share*100)}% at junction</div>
+      <div style="display:flex;gap:18px;margin-top:10px">
+        <div><div class="v" style="font-size:22px;font-weight:800;color:var(--hot)">${fmt(h.pcii)}</div><div class="l muted">PCII impact</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:var(--acc)">${h.z}</div><div class="l muted">Gi* z-score</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:var(--warn)">${h.repeat_offenders}</div><div class="l muted">repeat veh.</div></div>
+      </div>
+      <div class="chips">${(h.top_violations||[]).map(v=>`<span class="chip">${v}</span>`).join('')}
+        <span class="chip">🚗 ${h.top_vehicle}</span></div>
+      ${h.peak_window?`<div class="note">📍 <b>Recommended deployment:</b> ${h.peak_window} (peak impact window)</div>`:''}
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Spatio-temporal demand · day × hour</h2>
+      ${heatTable(prof)}
+      <div class="note">Darker = higher modelled congestion impact. Use to schedule patrol shifts.</div>
+    </div>`;
+}
+function heatTable(prof){
+  if(!prof) return '<div class="muted">No profile.</div>';
+  const mx = Math.max(...prof.flat(),1);
+  let html='<table class="heat"><tr><th></th>';
+  for(let hh=0;hh<24;hh+=3) html+=`<th colspan="3">${hh}</th>`;
+  html+='</tr>';
+  prof.forEach((row,d)=>{
+    html+=`<tr><th style="text-align:right;padding-right:4px">${DOW[d]}</th>`;
+    row.forEach(v=>{ const t=v/mx;
+      const col=t===0?'#0e1525':`rgba(255,${Math.round(180-150*t)},${Math.round(94-60*t)},${0.25+0.75*t})`;
+      html+=`<td style="background:${col}" title="${v}"></td>`;});
+    html+='</tr>';
+  });
+  return html+'</table>';
+}
+
+// ---- Model-trust card (validation metrics) ----
+function trustCard(){
+  const v = G.validation; if(!v) return '';
+  const stat = (val,lab,sub)=>`<div style="text-align:center;flex:1">
+     <div style="font-size:20px;font-weight:800;color:var(--ok)">${val}</div>
+     <div class="l muted" style="font-size:10px">${lab}</div>
+     <div class="muted" style="font-size:9px">${sub||''}</div></div>`;
+  return `<div class="card" style="border-color:var(--ok)">
+    <h2 style="margin-top:0;color:var(--ok)">✓ Model Trust — validated on data only</h2>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      ${stat('ρ='+v.predictive.spearman_train_pcii_vs_test_violations,'Predictive','70/30 hold-out')}
+      ${stat(Math.round(v.predictive.precision_at_50*100)+'%','Precision@50','hotspots persist')}
+      ${stat(Math.round(v.robustness.top50_stability*100)+'%','Robust','±25% weight noise')}
+    </div>
+    <div style="display:flex;gap:8px">
+      ${stat('ρ='+v.convergent.spearman_pcii_vs_active_days,'Convergent','vs chronic days')}
+      ${stat(v.spatial.morans_I,"Moran's I",'p='+v.spatial.permutation_p)}
+      ${stat(v.concentration.gini,'Gini','impact concentration')}
+    </div>
+    <div class="note">Hotspots are <b>predictive</b> (forecast future violations), <b>robust</b>
+      (ranking barely moves when weights shift ±25%), and <b>significantly clustered</b>
+      (Moran's I, p&lt;0.01) — so PCII is grounded, not arbitrary.</div></div>`;
+}
+
+// ---- Default right panel: city analytics ----
+function cityPanel(){
+  const b=G.breakdowns;
+  const barBlock=(arr,title)=>{const mx=Math.max(...arr.map(x=>x.v));
+    return `<div class="card"><h2 style="margin-top:0">${title}</h2>`+
+      arr.slice(0,7).map(x=>`<div class="bar"><div class="lab">${x.k}</div>
+      <div class="track"><div class="fill" style="width:${x.v/mx*100}%"></div></div></div>`).join('')+'</div>';};
+  const hmax=Math.max(...b.hourly);
+  const spark=`<div class="card"><h2 style="margin-top:0">Citywide impact by hour (IST)</h2>
+    <div class="spark">${b.hourly.map((v,i)=>`<div title="${i}:00 → ${fmt(v)}" style="height:${Math.max(4,v/hmax*100)}%"></div>`).join('')}</div>
+    <div class="note">Concentrated demand windows → shift-based proactive deployment beats random patrols.</div></div>`;
+  $('#detail').innerHTML =
+    `<div class="card"><div class="big">City Congestion Overview</div>
+       <div class="note">Top <b>1%</b> of locations carry <b>${k.pareto_top1pct_share}%</b> of all modelled
+       congestion impact. A focused fleet of <b>${k.patrols}</b> patrols can address
+       <b>${k.patrol_pcii_share}%</b> of citywide impact — the core case for targeted enforcement.</div></div>`
+    + trustCard()
+    + spark + barBlock(b.violation,'Impact by violation type') + barBlock(b.vehicle,'Impact by vehicle type')
+    + barBlock(b.police_station,'Impact by police station');
+}
+cityPanel();
+
+// ---- Tabs ----
+$('#tabHot').onclick=()=>{mode='hot';$('#tabHot').classList.add('on');$('#tabPatrol').classList.remove('on');
+  map.removeLayer(patrolLayer);markerLayer.addTo(map);renderList();cityPanel();selKey=null;};
+$('#tabPatrol').onclick=()=>{mode='patrol';$('#tabPatrol').classList.add('on');$('#tabHot').classList.remove('on');
+  drawPatrols();patrolLayer.addTo(map);renderList();
+  $('#detail').innerHTML=`<div class="card"><div class="big">Optimized Patrol Deployment</div>
+    <div class="note">Greedy max-coverage over PCII with spatial separation (no two units stacked on the
+    same cluster). ${G.patrol_plan.length} units cover <b>${fmt(k.patrol_pcii_covered)}</b> PCII
+    = <b>${k.patrol_pcii_share}%</b> of the entire city. Each unit ships with a recommended
+    time window from its local day×hour demand profile.</div></div>`+
+    G.patrol_plan.map(h=>`<div class="row" data-k="${keyOf(h)}" style="margin-bottom:7px">
+      <div class="rank p">${h.patrol_rank}</div><div class="rn"><div class="t">${h.name}</div>
+      <div class="s">⏱ ${h.peak_window} · relief ${fmt(h.pcii)}</div></div></div>`).join('');
+  document.querySelectorAll('#detail .row').forEach(r=>r.onclick=()=>select(r.dataset.k));
+};
+
+renderList();
+</script>
+</body>
+</html>
