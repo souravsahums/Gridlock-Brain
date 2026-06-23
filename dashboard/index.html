@@ -251,7 +251,12 @@ function trustCard(){
     </div>
     <div class="note">Hotspots are <b>predictive</b> (forecast future violations), <b>robust</b>
       (ranking barely moves when weights shift ±25%), and <b>significantly clustered</b>
-      (Moran's I, p&lt;0.01) — so PCII is grounded, not arbitrary.</div></div>`;
+      (Moran's I, p&lt;0.01) — so PCII is grounded, not arbitrary.</div>
+    ${G.calibration?`<div class="note" style="border-top:1px solid var(--line);padding-top:6px">
+      🎯 <b>External authority (dataset only):</b> ${G.calibration.top60_official_pct}% of top hotspots
+      sit on official BTP junctions vs a ${G.calibration.base_rate_official_pct}% base rate
+      (≈${(G.calibration.top60_official_pct/G.calibration.base_rate_official_pct).toFixed(1)}×),
+      and they recover ${G.calibration.recall_busiest20_official_junctions_pct}% of the 20 busiest official junctions.</div>`:''}</div>`;
 }
 
 // ---- Default right panel: city analytics ----
