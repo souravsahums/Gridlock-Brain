@@ -58,6 +58,9 @@ Validation uses **only the provided dataset** ([validate.py](validate.py)):
 | Robustness (±25% weight perturbation, 100×) | top-50 **96% stable** | conclusions don't depend on exact weights |
 | Convergent (vs. chronic active-days) | **0.91** | high-PCII places are chronically obstructed |
 | Spatial autocorrelation (Moran's I) | **0.64**, p=**0.005** | impact is significantly clustered |
+| External authority (BTP junction registry, in-dataset) | **72%** of top hotspots on official junctions vs **23%** base (≈3.1×); **85%** recall of the busiest 20 | hotspots match the city's own choke-point list, even with the junction factor removed |
+
+Run the validation with `python validate.py` and the junction calibration with `python calibrate.py` (both use only the provided dataset).
 
 ---
 
